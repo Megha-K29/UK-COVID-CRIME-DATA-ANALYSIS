@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Journal</title>
+<style>
+  :root{
+    --bg:#faf8f5; --card:#ffffff; --text:#2b2622; --muted:#8a7f74;
+    --accent:#c8734a; --accent-soft:#f3e2d6; --border:#e9e1d8;
+    --done:#7a9b6e; --today-ring:#c8734a;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1a18; --card:#26221f; --text:#ece6df; --muted:#9a9088;
+      --accent:#e08a5c; --accent-soft:#3a2d24; --border:#3a342f;
+      --done:#8fbf80;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1a18; --card:#26221f; --text:#ece6df; --muted:#9a9088;
+    --accent:#e08a5c; --accent-soft:#3a2d24; --border:#3a342f;
+    --done:#8fbf80;
+  }
+  html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+  *{box-sizing:border-box;}
+  body{
+    margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    display:flex; flex-direction:column;
+  }
+  header{
+    padding:16px 18px 10px; position:sticky; top:env(safe-area-inset-top,0px);
+    background:var(--bg); z-index:5;
+  }
+  h1{font-size:1.15rem; margin:0 0 2px; font-weight:700;}
+  .sub{color:var(--muted); font-size:0.82rem;}
+  main{flex:1; overflow-y:auto; padding:0 14px 24px; max-width:520px; margin:0 auto; width:100%;}
+
+  .cal-nav{display:flex; align-items:center; justify-content:space-between; margin:10px 0 8px;}
+  .cal-nav button{
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    width:34px; height:34px; border-radius:10px; font-size:1rem; cursor:pointer;
+  }
+  .cal-month{font-weight:600; font-size:0.95rem;}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:14px;}
+  .cal-dow{text-align:center; font-size:0.68rem; color:var(--muted); padding-bottom:4px;}
+  .cal-day{
+    aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:10px; background:var(--card); border:1px solid var(--border);
+    cursor:pointer; font-size:0.85rem; position:relative; color:var(--text);
+  }
+  .cal-day.empty{background:transparent; border:none; cursor:default;}
+  .cal-day.today{box-shadow:inset 0 0 0 2px var(--today-ring);}
+  .cal-day.selected{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .cal-day .dot{width:5px; height:5px; border-radius:50%; background:var(--done); margin-top:3px;}
+  .cal-day.selected .dot{background:#fff;}
+  .cal-day .progress-ring{position:absolute; top:2px; right:3px; font-size:0.55rem; color:var(--muted);}
+  .cal-day.selected .progress-ring{color:rgba(255,255,255,0.85);}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px;}
+  .card h2{font-size:0.95rem; margin:0 0 10px; display:flex; align-items:center; justify-content:space-between;}
+  .day-label{font-weight:700; font-size:1rem;}
+
+  textarea{
+    width:100%; min-height:110px; resize:vertical; border:1px solid var(--border);
+    border-radius:10px; padding:10px; font-family:inherit; font-size:0.9rem;
+    background:var(--bg); color:var(--text);
+  }
+  .save-hint{font-size:0.72rem; color:var(--muted); margin-top:6px; text-align:right; min-height:14px;}
+
+  .task-row{display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--border);}
+  .task-row:last-child{border-bottom:none;}
+  .task-row input[type=checkbox]{
+    width:20px; height:20px; accent-color:var(--done); flex-shrink:0;
+  }
+  .task-row span{flex:1; font-size:0.9rem;}
+  .task-row.checked span{text-decoration:line-through; color:var(--muted);}
+  .task-row button{
+    background:none; border:none; color:var(--muted); font-size:1rem; cursor:pointer; padding:4px 8px;
+  }
+  .add-task{display:flex; gap:8px; margin-top:10px;}
+  .add-task input{
+    flex:1; border:1px solid var(--border); border-radius:10px; padding:9px 10px;
+    background:var(--bg); color:var(--text); font-size:0.9rem;
+  }
+  .add-task button{
+    background:var(--accent); color:#fff; border:none; border-radius:10px;
+    padding:0 16px; font-size:1.1rem; cursor:pointer;
+  }
+  .empty-note{color:var(--muted); font-size:0.85rem; text-align:center; padding:10px 0;}
+  .copy-prev-btn{
+    width:100%; margin-top:10px; padding:9px; border-radius:10px;
+    border:1px dashed var(--border); background:transparent; color:var(--accent);
+    font-size:0.82rem; cursor:pointer;
+  }
+  .task-row span[contenteditable="true"]{outline:none; border-bottom:1px dashed var(--accent);}
+  .progress-bar{height:6px; background:var(--accent-soft); border-radius:4px; overflow:hidden; margin-bottom:12px;}
+  .progress-fill{height:100%; background:var(--done); transition:width .25s;}
+  .progress-text{font-size:0.75rem; color:var(--muted); margin-bottom:2px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>📔 Daily Journal</h1>
+  <div class="sub">Plan it, write it, tick it off.</div>
+</header>
+<main>
+  <div class="cal-nav">
+    <button id="prevMonth">‹</button>
+    <div class="cal-month" id="calMonthLabel"></div>
+    <button id="nextMonth">›</button>
+  </div>
+  <div class="cal-grid" id="calDow"></div>
+  <div class="cal-grid" id="calGrid"></div>
+
+  <div class="card">
+    <h2><span class="day-label" id="selectedDayLabel">Today</span></h2>
+    <div class="progress-text" id="progressText"></div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+
+    <div id="taskList"></div>
+    <div class="add-task">
+      <input type="text" id="newTaskInput" placeholder="Add a planned task…" maxlength="120">
+      <button id="addTaskBtn">+</button>
+    </div>
+    <button id="copyPrevBtn" class="copy-prev-btn">↻ Copy yesterday's tasks</button>
+  </div>
+
+  <div class="card">
+    <h2>Journal entry</h2>
+    <textarea id="journalText" placeholder="How did today go? What's on your mind…"></textarea>
+    <div class="save-hint" id="saveHint"></div>
+  </div>
+</main>
+
+<script>
+(function(){
+  const STORAGE_KEY = 'daily-journal-data-v1';
+  const DOW = ['S','M','T','W','T','F','S'];
+
+  function loadData(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    }catch(e){ return {}; }
+  }
+  function saveData(data){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    catch(e){ console.error('save failed', e); }
+  }
+
+  let data = loadData(); // { "2026-09-23": { journal: "...", tasks: [{id,text,done}] } }
+
+  function fmtKey(d){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function todayKey(){ return fmtKey(new Date()); }
+
+  let viewDate = new Date(); // month being shown
+  let selectedKey = todayKey();
+
+  function dayEntry(key){
+    if(!data[key]) data[key] = { journal:'', tasks:[] };
+    return data[key];
+  }
+
+  function renderCalendarHeader(){
+    document.getElementById('calMonthLabel').textContent =
+      viewDate.toLocaleDateString(undefined,{month:'long', year:'numeric'});
+  }
+
+  function renderDow(){
+    const el = document.getElementById('calDow');
+    el.innerHTML = DOW.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  }
+
+  function renderGrid(){
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+    const year = viewDate.getFullYear(), month = viewDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startOffset = firstDay.getDay();
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const tKey = todayKey();
+
+    for(let i=0;i<startOffset;i++){
+      const e = document.createElement('div');
+      e.className = 'cal-day empty';
+      grid.appendChild(e);
+    }
+    for(let d=1; d<=daysInMonth; d++){
+      const dateObj = new Date(year, month, d);
+      const key = fmtKey(dateObj);
+      const cell = document.createElement('div');
+      cell.className = 'cal-day';
+      if(key === tKey) cell.classList.add('today');
+      if(key === selectedKey) cell.classList.add('selected');
+
+      const entry = data[key];
+      let ringHtml = '';
+      if(entry && entry.tasks && entry.tasks.length){
+        const done = entry.tasks.filter(t=>t.done).length;
+        const total = entry.tasks.length;
+        if(done === total){
+          ringHtml = '<div class="dot"></div>';
+        } else {
+          ringHtml = `<div class="progress-ring">${done}/${total}</div>`;
+        }
+      }
+      cell.innerHTML = `<div>${d}</div>${ringHtml}`;
+      cell.addEventListener('click', ()=>{
+        selectedKey = key;
+        renderAll();
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  function renderDayPanel(){
+    const entry = dayEntry(selectedKey);
+    const dObj = new Date(selectedKey+'T00:00:00');
+    const label = (selectedKey === todayKey() ? 'Today · ' : '') +
+      dObj.toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric'});
+    document.getElementById('selectedDayLabel').textContent = label;
+
+    // tasks
+    const list = document.getElementById('taskList');
+    list.innerHTML = '';
+    if(!entry.tasks.length){
+      list.innerHTML = '<div class="empty-note">No tasks planned yet — add one below.</div>';
+    } else {
+      entry.tasks.forEach(task=>{
+        const row = document.createElement('div');
+        row.className = 'task-row' + (task.done ? ' checked' : '');
+        row.innerHTML = `
+          <input type="checkbox" ${task.done ? 'checked' : ''}>
+          <span contenteditable="true" spellcheck="false"></span>
+          <button title="Delete">✕</button>
+        `;
+        const span = row.querySelector('span');
+        span.textContent = task.text;
+        row.querySelector('input').addEventListener('change', (e)=>{
+          task.done = e.target.checked;
+          saveData(data);
+          renderDayPanel();
+          renderGrid();
+        });
+        row.querySelector('button').addEventListener('click', ()=>{
+          entry.tasks = entry.tasks.filter(t=>t.id !== task.id);
+          saveData(data);
+          renderDayPanel();
+          renderGrid();
+        });
+        // tap-to-edit task text
+        span.addEventListener('blur', ()=>{
+          const newText = span.textContent.trim();
+          if(newText){
+            task.text = newText;
+          } else {
+            span.textContent = task.text; // don't allow empty
+          }
+          saveData(data);
+        });
+        span.addEventListener('keydown', (e)=>{
+          if(e.key === 'Enter'){ e.preventDefault(); span.blur(); }
+        });
+        list.appendChild(row);
+      });
+    }
+
+    // progress
+    const total = entry.tasks.length;
+    const done = entry.tasks.filter(t=>t.done).length;
+    const pct = total ? Math.round((done/total)*100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressText').textContent =
+      total ? `${done} of ${total} done` : 'Nothing planned yet';
+
+    // journal
+    const ta = document.getElementById('journalText');
+    ta.value = entry.journal || '';
+  }
+
+  function renderAll(){
+    renderCalendarHeader();
+    renderGrid();
+    renderDayPanel();
+  }
+
+  // events
+  document.getElementById('prevMonth').addEventListener('click', ()=>{
+    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1);
+    renderCalendarHeader();
+    renderGrid();
+  });
+  document.getElementById('nextMonth').addEventListener('click', ()=>{
+    viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth()+1, 1);
+    renderCalendarHeader();
+    renderGrid();
+  });
+
+  document.getElementById('addTaskBtn').addEventListener('click', addTask);
+  document.getElementById('newTaskInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter') addTask();
+  });
+  function addTask(){
+    const input = document.getElementById('newTaskInput');
+    const text = input.value.trim();
+    if(!text) return;
+    const entry = dayEntry(selectedKey);
+    entry.tasks.push({ id: Date.now()+'-'+Math.random().toString(36).slice(2,7), text, done:false });
+    saveData(data);
+    input.value = '';
+    renderDayPanel();
+    renderGrid();
+  }
+
+  document.getElementById('copyPrevBtn').addEventListener('click', ()=>{
+    const cur = new Date(selectedKey+'T00:00:00');
+    const prev = new Date(cur);
+    prev.setDate(prev.getDate()-1);
+    const prevKey = fmtKey(prev);
+    const prevEntry = data[prevKey];
+    if(!prevEntry || !prevEntry.tasks || !prevEntry.tasks.length){
+      alert("No tasks found on the previous day to copy.");
+      return;
+    }
+    const entry = dayEntry(selectedKey);
+    prevEntry.tasks.forEach(t=>{
+      // avoid duplicating if same text already added today
+      const exists = entry.tasks.some(et => et.text === t.text);
+      if(!exists){
+        entry.tasks.push({ id: Date.now()+'-'+Math.random().toString(36).slice(2,7), text: t.text, done:false });
+      }
+    });
+    saveData(data);
+    renderDayPanel();
+    renderGrid();
+  });
+
+  let saveTimer;
+  document.getElementById('journalText').addEventListener('input', (e)=>{
+    const entry = dayEntry(selectedKey);
+    entry.journal = e.target.value;
+    saveData(data);
+    const hint = document.getElementById('saveHint');
+    hint.textContent = 'Saved';
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(()=>{ hint.textContent = ''; }, 1200);
+  });
+
+  renderDow();
+  renderAll();
+})();
+</script>
+</body>
+</html>
